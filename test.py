@@ -46,7 +46,7 @@ def main():
     # dataloader = model.get_dataloader(data_path)
     dataloader = model.get_dataloader(corpus, queries, qrels)
 
-    writer = CustomWriter("./output/BM25_10.jpg")
+    writer = CustomWriter("./output/BM25_{}.jpg".format(args.num_docs))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 
