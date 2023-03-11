@@ -44,13 +44,13 @@ class QASDataset(Dataset):
         return self.context[i], self.question[i], self.answer[i]
 
 class Retrieved_Dataset(Dataset):
-    def __init__(self, corpus, queries, qrels):
+    def __init__(self, corpus, queries, qrels, num_docs):
         super().__init__()
         self.context, self.question, self.answer = [], [], []
         for q,documents in qrels.items():
             self.question.append(queries[q]['text'])
             self.answer.append(queries[q]['answer'])
-            self.context.append([corpus[d]['text'] for d in documents.keys()][:9])
+            self.context.append([corpus[d]['text'] for d in documents.keys()][:num_docs-1])
 
     def __len__(self):
         assert len(self.context) == len(self.question)
@@ -99,6 +99,7 @@ class Reader(pl.LightningModule):
             self.template = "Please answer the question based on the passage.\n\nPassage: {d}\n\nQuestion: {q}"
         self.batch_size = args.batch
         self.cs = args.cs
+        self.num_docs = args.num_docs
 
     def forward(self, input):
         if 'T0' not in self.model_name:
@@ -156,7 +157,7 @@ class Reader(pl.LightningModule):
         return DataLoader(dataset, batch_size=int(self.batch_size))
 
     def get_dataloader(self, corpus, queries, qrels):
-        dataset = Retrieved_Dataset(corpus, queries, qrels)
+        dataset = Retrieved_Dataset(corpus, queries, qrels, self.num_docs)
         return DataLoader(dataset, batch_size=int(self.batch_size))
 
 
