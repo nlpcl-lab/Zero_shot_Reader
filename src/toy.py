@@ -100,6 +100,7 @@ class Reader(pl.LightningModule):
         self.batch_size = args.batch
         self.cs = args.cs
         self.num_docs = args.num_docs
+        self.threshold = args.threshold
 
     def forward(self, input):
         if 'T0' not in self.model_name:
@@ -128,7 +129,7 @@ class Reader(pl.LightningModule):
             scores.append(score)
             preds.append(pred)
             if self.cs:
-                if score - no_score > 0.4:
+                if score - no_score > self.threshold:
                     acc = self._accuracy(answers, pred)
                     result = (acc, score - no_score)
                     return result

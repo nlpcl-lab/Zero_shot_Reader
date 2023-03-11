@@ -23,6 +23,7 @@ def parse():
     parser.add_argument("--model", type=str, default="facebook/opt-2.7b")
     parser.add_argument("--cs", type=int, default=0)
     parser.add_argument("--num_docs", type=int, default=100)
+    parser.add_argument("--threshold", type=float, default=0.5)
 
     args = parser.parse_args()
 
@@ -46,7 +47,7 @@ def main():
     # dataloader = model.get_dataloader(data_path)
     dataloader = model.get_dataloader(corpus, queries, qrels)
 
-    writer = CustomWriter("./output/BM25_{}.jpg".format(args.num_docs))
+    writer = CustomWriter("./output/BM25_{}_{}_{}.jpg".format(args.num_docs, args.cs, args.threshold))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 
