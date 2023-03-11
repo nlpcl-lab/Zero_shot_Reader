@@ -2,9 +2,10 @@ import argparse, time, json, os
 import logging
 from beir import LoggingHandler
 import pytorch_lightning as pl
-from src.toy import QASDataset, Reader
+from src.toy import QASDataset, Reader, Phrase_QASDataset, Phrase_Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
+from src.util import CustomWriter, load_data
 
 def timestr():
     return time.strftime("%Y%m%d-%H%M%S")
@@ -19,7 +20,8 @@ def parse():
     parser.add_argument("--batch", type=int, default=1)
 
     #Reader
-    parser.add_argument("--model", type=str, default="facebook/opt-6.7b")
+    parser.add_argument("--model", type=str, default="facebook/opt-2.7b")
+    parser.add_argument("--cs", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -36,11 +38,16 @@ def main():
 
     model = Reader(args)
 
-    data_path = "./data/nq/nq-dev.json"
-    dataloader = model.get_dataloader(data_path)
+    corpus, queries, _ = load_data('nq', "./data", 'dev')
+    with open('./data/nq/nq-dev-bm25.json') as f:
+        qrels = json.load(f)
+    # data_path = "./data/nq/nq-dev.json"
+    # dataloader = model.get_dataloader(data_path)
+    dataloader = model.get_dataloader(corpus, queries, qrels)
 
-    trainer = pl.Trainer(accelerator="gpu", devices=1, logger=CSVLogger(save_dir="./logs/"), callbacks=[TQDMProgressBar(refresh_rate=10)])
-    trainer.test(model, dataloaders=dataloader)
+    writer = CustomWriter("./output/BM25_10.jpg")
+    trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
+    trainer.predict(model, dataloaders=dataloader)
 
 
 if __name__=="__main__":
