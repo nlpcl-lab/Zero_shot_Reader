@@ -41,13 +41,13 @@ def main():
     model = Reader(args)
 
     corpus, queries, _ = load_data('nq', "./data", 'dev')
-    with open('./data/nq/nq-dev-bm25.json') as f:
+    with open('./data/nq/nq-dev-dpr.json') as f:
         qrels = json.load(f)
     # data_path = "./data/nq/nq-dev.json"
     # dataloader = model.get_dataloader(data_path)
     dataloader = model.get_dataloader(corpus, queries, qrels)
 
-    writer = CustomWriter("./output/BM25_{}_{}_{}.jpg".format(args.num_docs, args.cs, args.threshold))
+    writer = CustomWriter("./output/dpr_{}_{}_{}.jpg".format(args.num_docs, args.cs, args.threshold))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 
