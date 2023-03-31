@@ -1,11 +1,13 @@
 import argparse, time, json, os
 import logging
 from beir import LoggingHandler
+from beir.retrieval.evaluation import EvaluateRetrieval
 import pytorch_lightning as pl
-from src.toy import QASDataset, Reader, Phrase_QASDataset, Phrase_Reader
+from src.toy import QASDataset, Reader, Phrase_QASDataset, Phrase_Reader, DPR_Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.util import CustomWriter, load_data
+from IPython import embed
 
 def timestr():
     return time.strftime("%Y%m%d-%H%M%S")
@@ -37,17 +39,24 @@ def main():
     t = timestr()
     args = parse()
     logging.info("Implemented time is {}".format(t))
+    if 'dpr' in args.model:
+        model = DPR_Reader(args)
+    else:
+        model = Reader(args)
 
-    model = Reader(args)
+    corpus, queries, qrels = load_data('nq', "./data", 'dev')
+    with open('./data/nq/nq-dev-DPR.json') as f:
+        results = json.load(f)
 
-    corpus, queries, _ = load_data('nq', "./data", 'dev')
-    with open('./data/nq/nq-dev-dpr.json') as f:
-        qrels = json.load(f)
+    retriever = EvaluateRetrieval()
+    logging.info("Retriever evaluation for k in: {}".format(retriever.k_values))
+    ndcg, _map, recall, precision = retriever.evaluate(qrels, results, [1, 3, 5, 10, 20, 100, 1000])
+    top_k = retriever.evaluate_custom(qrels, results, [1,3,5,10,20,100,1000], metric="top_k_acc")
     # data_path = "./data/nq/nq-dev.json"
     # dataloader = model.get_dataloader(data_path)
-    dataloader = model.get_dataloader(corpus, queries, qrels)
+    dataloader = model.get_dataloader(corpus, queries, results)
 
-    writer = CustomWriter("./output/dpr_{}_{}_{}.jpg".format(args.num_docs, args.cs, args.threshold))
+    writer = CustomWriter("./output/{}_dpr_{}_{}_{}.jpg".format(args.model, args.num_docs, args.cs, args.threshold))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 

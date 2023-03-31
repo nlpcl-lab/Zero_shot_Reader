@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import DPRReader, DPRReaderTokenizer
 from torch.utils.data import DataLoader, Dataset
 from src.util import _normalize_answer
 import pytorch_lightning as pl
@@ -9,6 +10,7 @@ from torch.nn.functional import log_softmax
 from torch import topk
 from tqdm import tqdm
 from math import exp
+import torch
 from IPython import embed
 
 class QASDataset(Dataset):
@@ -50,7 +52,7 @@ class Retrieved_Dataset(Dataset):
         for q,documents in qrels.items():
             self.question.append(queries[q]['text'])
             self.answer.append(queries[q]['answer'])
-            self.context.append([corpus[d]['text'] for d in documents.keys()][:num_docs-1])
+            self.context.append([corpus[d]['text'] for d in documents.keys()][:num_docs])
 
     def __len__(self):
         assert len(self.context) == len(self.question)
@@ -85,6 +87,53 @@ class Phrase_QASDataset(Dataset):
     def __getitem__(self, i):
         return self.context[i], self.question[i], self.answer[i]
 
+
+class DPR_Reader(pl.LightningModule):
+    def __init__(self, args):
+        super().__init__()
+        self.model_name = args.model
+        self.tokenizer = DPRReaderTokenizer.from_pretrained("facebook/dpr-reader-single-nq-base")
+        self.model = DPRReader.from_pretrained("facebook/dpr-reader-single-nq-base", return_dict=True)
+        self.batch_size = args.batch
+        self.cs = args.cs
+        self.num_docs = args.num_docs
+        self.threshold = args.threshold
+
+    def forward(self, input):
+        return self.model(**input)
+
+    def predict_step(self, batch, batch_idx):
+        # for d in batch[0]:
+        questions = [batch[1][0]]
+        texts = [d[0] for d in batch[0]]
+        answers = [_normalize_answer(a) for a in batch[2][0]]
+        encoded_inputs = self.tokenizer(questions=questions * 100, titles=[""] * 100, texts=texts, return_tensors="pt", padding=True).to(self.device)
+        outputs = self(encoded_inputs)
+        predictions = self.tokenizer.decode_best_spans(encoded_inputs, outputs)
+        pred = _normalize_answer(predictions[0].text)
+
+        acc = self._accuracy(answers, pred)
+        result = (acc, 0)
+        return result
+
+
+    def _calculate_score(self, outputs):
+        scores = []
+        for i in range(1, outputs.sequences.shape[1]):
+            s = topk(log_softmax(outputs.scores[i - 1]), 1).values[0][0]
+            scores.append(float(s))
+        return exp(sum(scores) / len(scores))
+
+    def _accuracy(self, golds, preds):
+        total = len(golds)
+        cor = sum([int(g in p) for g, p in zip(golds, preds)])
+        return cor / total
+
+    def get_dataloader(self, corpus, queries, qrels):
+        dataset = Retrieved_Dataset(corpus, queries, qrels, self.num_docs)
+        return DataLoader(dataset, batch_size=int(self.batch_size))
+
+
 class Reader(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
@@ -117,10 +166,9 @@ class Reader(pl.LightningModule):
         generated_ids = self(input)
         no_score = self._calculate_score(generated_ids)
         answers = [_normalize_answer(a) for a in batch[2][0]]
-
         scores, preds = [], []
         for d in batch[0]:
-            texts = [self.template.format(d=d, q=q) for q in (batch[1])]
+            texts = [self.template.format(d=d[0], q=q) for q in (batch[1])]
             input = self.tokenizer(texts, padding=True, return_tensors="pt").to(self.device)
             generated_ids = self(input)
             score = self._calculate_score(generated_ids)
