@@ -3,7 +3,7 @@ import logging
 from beir import LoggingHandler
 from beir.retrieval.evaluation import EvaluateRetrieval
 import pytorch_lightning as pl
-from src.toy import QASDataset, Reader, Phrase_QASDataset, Phrase_Reader, DPR_Reader
+from src.toy import QASDataset, Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.util import CustomWriter, load_data
@@ -56,7 +56,7 @@ def main():
     # dataloader = model.get_dataloader(data_path)
     dataloader = model.get_dataloader(corpus, queries, results)
 
-    writer = CustomWriter("./output/{}_dpr_{}_{}_{}.jpg".format(args.model, args.num_docs, args.cs, args.threshold))
+    writer = CustomWriter("./output/{}_dpr_{}_{}_{}.jpg".format(args.model.split("/")[-1], args.num_docs, args.cs, args.threshold))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 
