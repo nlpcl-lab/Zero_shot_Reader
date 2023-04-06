@@ -3,7 +3,7 @@ import logging
 from beir import LoggingHandler
 from beir.retrieval.evaluation import EvaluateRetrieval
 import pytorch_lightning as pl
-from src.toy import QASDataset, Reader
+from src.toy import Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.util import CustomWriter, load_data
@@ -22,7 +22,7 @@ def parse():
     parser.add_argument("--batch", type=int, default=1)
 
     #Reader
-    parser.add_argument("--model", type=str, default="facebook/opt-2.7b")
+    parser.add_argument("--model", type=str, default="facebook/opt-iml-1.3b")
     parser.add_argument("--cs", type=int, default=0)
     parser.add_argument("--num_docs", type=int, default=100)
     parser.add_argument("--threshold", type=float, default=0.5)
@@ -39,10 +39,7 @@ def main():
     t = timestr()
     args = parse()
     logging.info("Implemented time is {}".format(t))
-    if 'dpr' in args.model:
-        model = DPR_Reader(args)
-    else:
-        model = Reader(args)
+    model = Reader(args)
 
     corpus, queries, qrels = load_data('nq', "./data", 'dev')
     with open('./data/nq/nq-dev-DPR.json') as f:

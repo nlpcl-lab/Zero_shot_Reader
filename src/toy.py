@@ -61,7 +61,7 @@ class Reader(pl.LightningModule):
         if "T0" not in args.model:
             self.model = AutoModelForCausalLM.from_pretrained(args.model, cache_dir="./models/")
             self.tokenizer = AutoTokenizer.from_pretrained(args.model)
-            self.template = "Passage: {d}\nQuestion: {q}\nAnswer: "
+            self.template = "Read the following context and answer the question.\nContext: {d}\nQuestion: {q}\nAnswer:"
         else:
             self.model = T5ForConditionalGeneration.from_pretrained("./models/T0_3B")
             self.tokenizer = T5Tokenizer.from_pretrained("./models/T0_3B")
@@ -72,11 +72,11 @@ class Reader(pl.LightningModule):
         self.threshold = args.threshold
 
     def forward(self, input):
-        if 'T0' not in self.model_name:
-            max_length = input.input_ids.shape[1]+10
+        max_length = 10
+        if "T0" not in self.model_name:
+            generated_ids = self.model.generate(input.input_ids, max_length=input.input_ids.shape[1]+10, return_dict_in_generate=True, output_scores=True)
         else:
-            max_length = 10
-        generated_ids = self.model.generate(input.input_ids, max_length=max_length,return_dict_in_generate=True, output_scores=True)
+            generated_ids = self.model.generate(input.input_ids, max_length=10, return_dict_in_generate=True, output_scores=True)
         return generated_ids
 
 
@@ -110,10 +110,16 @@ class Reader(pl.LightningModule):
 
 
     def _calculate_score(self, outputs):
-        scores = []
-        for i in range(1,outputs.sequences.shape[1]):
-            s = topk(log_softmax(outputs.scores[i-1]),1).values[0][0]
-            scores.append(float(s))
+        if 'T0' not in self.model_name:
+            scores = []
+            for i in outputs.scores:
+                s = topk(log_softmax(i),1).values[0][0]
+                scores.append(float(s))
+        else:
+            scores = []
+            for i in range(1,outputs.sequences.shape[1]):
+                s = topk(log_softmax(outputs.scores[i-1]),1).values[0][0]
+                scores.append(float(s))
         return exp(sum(scores)/len(scores))
 
     def _accuracy(self, golds, pred):
