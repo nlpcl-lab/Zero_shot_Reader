@@ -117,7 +117,8 @@ class Reader(pl.LightningModule):
             if pred[0] != "unanswerable":
                 scores.append(score)
                 preds.append(pred)
-                rel_scores.append(float(rel_score))
+                if self.uncertain == 2:
+                    rel_scores.append(float(rel_score))
                 # if self.cs:
                 #     if score - no_score > self.threshold:
                 #         acc = self._accuracy(answers, pred)
@@ -129,7 +130,7 @@ class Reader(pl.LightningModule):
         else:
             if self.uncertain == 2:
                 rel_scores = torch.nn.functional.softmax(torch.tensor(rel_scores),dim=0).tolist()
-                score = [s * r for s,r in zip(scores,rel_scores)]
+                scores = [s * r for s,r in zip(scores,rel_scores)]
             score = max(scores)
             pred = preds[scores.index(score)]
         acc = self._accuracy(answers, pred)
