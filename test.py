@@ -26,6 +26,7 @@ def parse():
     parser.add_argument("--cs", type=int, default=0)
     parser.add_argument("--num_docs", type=int, default=100)
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--uncertain", type=int, default=0)
 
     args = parser.parse_args()
 
@@ -53,7 +54,7 @@ def main():
     # dataloader = model.get_dataloader(data_path)
     dataloader = model.get_dataloader(corpus, queries, results)
 
-    writer = CustomWriter("./output/{}_dpr_{}_{}_{}.jpg".format(args.model.split("/")[-1], args.num_docs, args.cs, args.threshold))
+    writer = CustomWriter("./output/reader_{}_retriever_dpr_docs_{}_uncertain_{}.jpg".format(args.model.split("/")[-1], args.num_docs, args.uncertain))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 
