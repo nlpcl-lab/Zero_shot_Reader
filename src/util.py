@@ -160,7 +160,7 @@ def _normalize_answer(s):
 def get_result(predictions):
     pos_result = []
     neg_result = []
-    for acc,score in predictions[0]:
+    for acc,score,_ in predictions[0]:
         if acc > 0:
             pos_result.append(score)
         else:
