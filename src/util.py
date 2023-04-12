@@ -164,7 +164,8 @@ def get_result(predictions):
         if acc > 0:
             pos_result.append(score)
         else:
-            neg_result.append(score)
+            if score > 0:
+                neg_result.append(score)
 
     return np.array(pos_result), np.array(neg_result)
 
@@ -190,6 +191,6 @@ class CustomWriter(BasePredictionWriter):
         pos_result, neg_result = get_result(predictions)
         plt.hist(pos_result, bins=100, alpha=0.5)
         plt.hist(neg_result, bins=100, alpha=0.5)
-        plt.title("Acc {}".format(round(len(pos_result)/(len(pos_result) + len(neg_result))*100,2)))
+        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0]),2)))
 
         plt.savefig(self.out_dir)
