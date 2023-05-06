@@ -191,6 +191,6 @@ class CustomWriter(BasePredictionWriter):
         pos_result, neg_result = get_result(predictions)
         plt.hist(pos_result, bins=100, alpha=0.5)
         plt.hist(neg_result, bins=100, alpha=0.5)
-        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0]),2)))
+        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0])*100,2)))
 
         plt.savefig(self.out_dir)

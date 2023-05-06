@@ -22,8 +22,7 @@ def parse():
     parser.add_argument("--batch", type=int, default=1)
 
     #Reader
-    #parser.add_argument("--model", type=str, default="facebook/opt-iml-1.3b")
-    parser.add_argument("--model", type=str, default="facebook/opt-2.7b")
+    parser.add_argument("--model", type=str, default="opt-iml-1.3b")
     parser.add_argument("--cs", type=int, default=0)
     parser.add_argument("--num_docs", type=int, default=100)
     parser.add_argument("--threshold", type=float, default=0.5)
