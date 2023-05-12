@@ -63,23 +63,23 @@ class Reader(pl.LightningModule):
         if "opt" in args.model:
             self.model = AutoModelForCausalLM.from_pretrained("../models/"+args.model)
             self.tokenizer = AutoTokenizer.from_pretrained("../models/"+args.model)
-            if args.uncertain == 1 and args.uncertain == 2:
+            if args.uncertain == 1 or args.uncertain == 2:
                 self.template = "Read the following context and answer the question. If you can't find an answer, return Unanswerable\n\nContext: {d}\nQuestion: {q}\nAnswer:"
             else:
                 self.template = "Read the following context and answer the question.\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         elif "t5" in args.model:
             self.model = AutoModelForSeq2SeqLM.from_pretrained("../models/"+args.model)
             self.tokenizer = AutoTokenizer.from_pretrained("../models/"+args.model)
-            if args.uncertain == 1 and args.uncertain == 2:
+            if args.uncertain == 1 or args.uncertain == 2:
                 self.template = 'Read the following context and answer the question. If you can\'t find an answer, return "unanswerable"\n\nContext: {d}\nQuestion: {q}\nAnswer:'
-            elif args.uncertain == 4:
+            elif args.uncertain == 4 or args.uncertain == 5:
                 self.template = "Read the following context and answer the question with reasoning step-by-step.\n\nContext: {d}\nQuestion: {q}\nAnswer:"
             else:
                 self.template = "Read the following context and answer the question.\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         else:
             self.model = T5ForConditionalGeneration.from_pretrained("../models/"+ args.model)
             self.tokenizer = T5Tokenizer.from_pretrained("../models/" + args.model)
-            if args.uncertain == 1 and args.uncertain == 2:
+            if args.uncertain == 1 or args.uncertain == 2:
                 self.template = 'Read the following contest and answer the question. If you can\'t find an answer, return "unanswerable"\n\nContext: {d}\nQuestion: {q}\nAnswer:'
             else:
                 self.template = "Read the following context and answer the question with reasoning step-by-step.\n\nContext: {d}\nQuestion: {q}\nAnswer:"
@@ -130,19 +130,20 @@ class Reader(pl.LightningModule):
             texts = [self.template.format(d=d[0], q=q)]
             input = self.tokenizer(texts, padding=True, return_tensors="pt").to(self.device)
             generated_ids = self(input)
-            if self.uncertain >= 2 and self.uncertain < 4:
+            if (self.uncertain >= 2 and self.uncertain < 4) or self.uncertain == 5:
                 rel_score = self.get_score(d[0],q)
             pred = self.tokenizer.batch_decode(generated_ids.sequences, skip_special_tokens=True)
             seq_len = len(self.tokenizer(pred[0].split("the final answer is ")[-1])['input_ids'])
             score = self._calculate_score(generated_ids, seq_len)
-            if self.uncertain == 4:
+            embed();exit(0)
+            if self.uncertain == 4 or self.uncertain == 5:
                 pred = [_normalize_answer(p.split("the final answer is")[-1]) for p in pred]
             else:
                 pred = [_normalize_answer(p.split("Answer:")[-1]) for p in pred]
             if pred[0] != "unanswerable":
                 scores.append(score)
                 preds.append(pred)
-                if self.uncertain >= 2 and self.uncertain < 4:
+                if (self.uncertain >= 2 and self.uncertain < 4) or self.uncertain == 5:
                     rel_scores.append(float(rel_score))
                 # if self.cs:
                 #     if score - no_score > self.threshold:
@@ -153,7 +154,7 @@ class Reader(pl.LightningModule):
             pred = 'unanswerable'
             score = -1
         else:
-            if self.uncertain >= 2 and self.uncertain < 4:
+            if (self.uncertain >= 2 and self.uncertain < 4) or self.uncertain == 5:
                 rel_scores = torch.nn.functional.softmax(torch.tensor(rel_scores),dim=0).tolist()
                 scores = [s * r for s,r in zip(scores,rel_scores)]
             score = max(scores)

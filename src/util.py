@@ -9,6 +9,7 @@ import json
 import os
 import logging
 import csv
+from IPython import embed
 
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,8 @@ def _normalize_answer(s):
 def get_result(predictions):
     pos_result = []
     neg_result = []
-    for acc,score,_ in predictions[0]:
+    embed()
+    for acc,score,_,_ in predictions[0]:
         if acc > 0:
             pos_result.append(score)
         else:
@@ -194,3 +196,36 @@ class CustomWriter(BasePredictionWriter):
         plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0])*100,2)))
 
         plt.savefig(self.out_dir)
+
+class CustomWriter2(BasePredictionWriter):
+
+    def __init__(self, out_dir, wrtie_interval="epoch"):
+        super().__init__(wrtie_interval)
+        self.results = []
+        self.out_dir = out_dir
+        self.logger = logging.getLogger(type(self).__name__)
+
+    def on_predict_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"):
+        self.results = [[] for _ in range(trainer.world_size)]
+
+    def write_on_epoch_end(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        predictions: Sequence[Any],
+        batch_indices: Optional[Sequence[Any]],
+    ):
+        pos_result, neg_result = get_result(predictions)
+        plt.hist(pos_result, bins=100, alpha=0.5)
+        plt.hist(neg_result, bins=100, alpha=0.5)
+        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0])*100,2)))
+
+        plt.savefig(os.path.join(self.out_dir, "result.jpg"))
+
+        raw_result = {}
+        for _,_,_, r in predictions[0]:
+            raw_result.update(r)
+        with open(os.path.join(self.out_dir, "raw_result.json"), 'w') as f:
+            json.dump(raw_result, f)
+
+
