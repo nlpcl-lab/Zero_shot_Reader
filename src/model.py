@@ -113,20 +113,23 @@ class Reader(pl.LightningModule):
         docs = [d[0] for d in batch[0]]
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
-
+        scores, preds = [], []
         inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
-        inputs = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device)
-        outputs = self(inputs)
-        scores = self._calculate_score(outputs)
-        if self.NC:
-            rel_scores = self._noisy_channel(docs, query)
-            scores = [s * r for s, r in zip(scores, rel_scores)]
+        for i in range(int(len(docs)/10)):
+            input = self.tokenizer(inputs[i:i*10], padding=True, truncation=True, return_tensors="pt").to(self.device)
+            outputs = self(input)
+            if self.NC:
+                rel_scores = self._noisy_channel(docs[i:i*10], query)
+                score = self._calculate_score(outputs)
+                scores += [s * r for s, r in zip(score, rel_scores)]
+            else:
+                scores += self._calculate_score(outputs)
 
-        preds = self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
-        if self.CoT:
-            preds = [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
-        else:
-            preds = [_normalize_answer(p) for p in preds]
+            preds = self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
+            if self.CoT:
+                preds += [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
+            else:
+                preds += [_normalize_answer(p) for p in preds]
 
         raw_result = self.create_raw_result(ids, preds, scores)
 
