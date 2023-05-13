@@ -116,10 +116,10 @@ class Reader(pl.LightningModule):
         scores, preds = [], []
         inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
         for i in range(int(len(docs)/10)):
-            input = self.tokenizer(inputs[i:i*10], padding=True, truncation=True, return_tensors="pt").to(self.device)
+            input = self.tokenizer(inputs[i*10:(i+1)*10], padding=True, truncation=True, return_tensors="pt").to(self.device)
             outputs = self(input)
             if self.NC:
-                rel_scores = self._noisy_channel(docs[i:i*10], query)
+                rel_scores = self._noisy_channel(docs[i*10:(i+1)*10], query)
                 score = self._calculate_score(outputs)
                 scores += [s * r for s, r in zip(score, rel_scores)]
             else:
