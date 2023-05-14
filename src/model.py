@@ -110,43 +110,45 @@ class Reader(pl.LightningModule):
     def predict_step(self, batch, batch_idx):
 
         answers = [_normalize_answer(a[0]) for a in batch[2]]
-        docs = [d[0] for d in batch[0]]
+        total_docs = [d[0] for d in batch[0]]
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
-        scores, preds = [], []
-        inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
-        for i in range(int(len(docs)/10)):
-            input = self.tokenizer(inputs[i*10:(i+1)*10], padding=True, truncation=True, return_tensors="pt").to(self.device)
+        answer_scores, preds = [], []
+        for i in range(int(len(total_docs)/10)):
+            docs = total_docs[i*10:(i+1)*10]
+            inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
+            input = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device)
             outputs = self(input)
             if self.NC:
-                rel_scores = self._noisy_channel(docs[i*10:(i+1)*10], query)
-                score = self._calculate_score(outputs)
-                scores += [s * r for s, r in zip(score, rel_scores)]
+                rel_scores = self._noisy_channel(docs, query)
+                scores = self._calculate_score(outputs)
+                answer_scores += [s * r for s, r in zip(scores, rel_scores)]
             else:
-                scores += self._calculate_score(outputs)
+                answer_scores += self._calculate_score(outputs)
 
-            preds = self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
-            if self.CoT:
-                preds += [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
-            else:
-                preds += [_normalize_answer(p) for p in preds]
+            preds += self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
 
-        raw_result = self.create_raw_result(ids, preds, scores)
+        if self.CoT:
+            preds = [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
+        else:
+            preds = [_normalize_answer(p) for p in preds]
+
+        raw_result = self.create_raw_result(ids, preds, answer_scores)
 
         if self.UC:
             preds = np.array(preds)
-            scores = np.array(scores)
+            answer_scores = np.array(answer_scores)
             index = preds != "unanswerable"
             preds = preds[index]
             if len(preds) == 0:
                 return (0, -1, "unanswerable", raw_result)
             else:
-                scores = scores[index]
-                score = max(scores)
-                pred = preds[np.where(scores == score)[0][0]]
+                answer_scores = answer_scores[index]
+                score = max(answer_scores)
+                pred = preds[np.where(answer_scores == score)[0][0]]
         else:
-            score = max(scores)
-            pred = preds[scores.index(score)]
+            score = max(answer_scores)
+            pred = preds[answer_scores.index(score)]
 
         acc = self._accuracy(answers, pred)
         return (acc, score, pred, raw_result)
