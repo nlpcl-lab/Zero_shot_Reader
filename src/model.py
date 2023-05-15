@@ -88,7 +88,7 @@ class Reader(pl.LightningModule):
         self.UC = args.UC
         self.NC = args.NC
         self.generate_kwargs = dict(
-            max_new_tokens=512,
+            max_new_tokens=1024,
             return_dict_in_generate=True,
             output_scores=True
         )
@@ -154,7 +154,7 @@ class Reader(pl.LightningModule):
         return (acc, score, pred, raw_result)
 
     def _calculate_score(self, outputs):
-        if "t5" in self.model_name:
+        if "t5" or "T0" in self.model_name:
             scores = torch.stack(outputs.scores).transpose(0,1)
             results = []
             for i in range(outputs.sequences.shape[0]):
@@ -169,11 +169,15 @@ class Reader(pl.LightningModule):
                     s = topk(log_softmax(j.unsqueeze(0)), 1).values[0][0]
                     result.append(float(s))
                 results.append(exp(sum(result)/len(result)))
-        elif "T0" in self.model_name:
-            pass
         elif "opt" in self.model_name:
-            pass
-
+            scores = torch.stack(outputs.scores).transpose(0,1)
+            results = []
+            for i in range(outputs.sequences.shape[0]):
+                result = []
+                for j in scores:
+                    s = topk(log_softmax(j.unsqueeze(0)), 1).values[0][0]
+                    result.append(float(s))
+                results.append(exp(sum(result)/len(result)))
         return results
 
     def _noisy_channel(self, docs, query):
