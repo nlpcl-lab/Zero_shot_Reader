@@ -213,7 +213,7 @@ class Reader(pl.LightningModule):
         dataset = QASDataset(data_path)
         return DataLoader(dataset, batch_size=1)
 
-    def get_dataloader(self, corpus, queries, qrels):
+    def get_dataloader(self, corpus, queries, qrels, workers):
         dataset = Retrieved_Dataset(corpus, queries, qrels, self.num_docs)
-        return DataLoader(dataset, batch_size=1)
+        return DataLoader(dataset, batch_size=1, num_workers=workers)
 

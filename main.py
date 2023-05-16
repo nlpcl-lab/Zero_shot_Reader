@@ -22,6 +22,7 @@ def parse():
 
     #Dataloader
     parser.add_argument("--batch", type=int, default=10)
+    parser.add_argument("--num_worker", type=int, default=10)
 
     #Reader
     parser.add_argument("--model", type=str, default="opt-iml-1.3b")
@@ -68,7 +69,7 @@ def main():
 
 
     model = Reader(args)
-    dataloader = model.get_dataloader(corpus, queries, results)
+    dataloader = model.get_dataloader(corpus, queries, results, args.num_workers)
 
     out_dir = os.path.join("./output",t)
     if not os.path.exists(out_dir):
