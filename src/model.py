@@ -11,17 +11,19 @@ from torch.nn.functional import log_softmax
 from torch import topk
 from tqdm import tqdm
 from math import exp
+import os
 import torch
 from IPython import embed
 import numpy as np
 
-def get_model_from_huggingface(model):
+def get_model_from_huggingface(model_dir, model):
+    model_path = os.path.join(model_dir, model)
     if "opt" in model:
-        return AutoModelForCausalLM.from_pretrained("../models/"+model), AutoTokenizer.from_pretrained("../models/"+model)
+        return AutoModelForCausalLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path)
     if "t5" in model:
-        return AutoModelForSeq2SeqLM.from_pretrained("../models/"+model), AutoTokenizer.from_pretrained("../models/"+model)
+        return AutoModelForSeq2SeqLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path)
     if "T0" in model:
-        return T5ForConditionalGeneration.from_pretrained("../models/"+model), T5Tokenizer.from_pretrained("../models/"+model)
+        return T5ForConditionalGeneration.from_pretrained(model_path), T5Tokenizer.from_pretrained(model_path)
     return None
 
 
@@ -72,7 +74,7 @@ class Reader(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
         self.model_name = args.model
-        self.model, self.tokenizer = get_model_from_huggingface(args.model)
+        self.model, self.tokenizer = get_model_from_huggingface(args.model_dir, args.model)
         self.tokenizer.padding_side = "left"
         self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         self.prompt = args.prompt
