@@ -19,7 +19,6 @@ def parse():
     parser.add_argument("--dataset", type=str, default="nq")
     parser.add_argument("--split", type=str, default='dev')
     parser.add_argument("--retriever", type=str, default="DPR")
-    parser.add_argument("--dataset_dir", type=str, default="./data")
 
     #Dataloader
     parser.add_argument("--batch", type=int, default=1)
@@ -40,6 +39,10 @@ def parse():
     #Noisy Channel
     parser.add_argument("--NC", action="store_true")
 
+    #Path
+    parser.add_argument("--dataset_dir", type=str, default="./data")
+    parser.add_argument("--model_dir", type=str, default="../models")
+
     args = parser.parse_args()
 
     return args
@@ -55,7 +58,7 @@ def main():
 
     corpus, queries, qrels = load_data(args.dataset, args.dataset_dir, args.split)
 
-    with open('./data/{d}/{d}-{s}-{r}.json'.format(d=args.dataset, s=args.split, r=args.retriever)) as f:
+    with open(os.path.join(args.dataset_dir,'{d}/{d}-{s}-{r}.json'.format(d=args.dataset, s=args.split, r=args.retriever))) as f:
         results = json.load(f)
 
     retriever = EvaluateRetrieval()
