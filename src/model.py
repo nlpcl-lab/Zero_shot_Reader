@@ -117,8 +117,8 @@ class Reader(pl.LightningModule):
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
         answer_scores, preds = [], []
-        for i in range(int(len(total_docs)/10)):
-            docs = total_docs[i*10:(i+1)*10]
+        for i in range(int(len(total_docs)/self.batch_size)):
+            docs = total_docs[i*self.batch_size:(i+1)*self.batch_size]
             inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
             input = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device)
             outputs = self(input)
@@ -211,9 +211,9 @@ class Reader(pl.LightningModule):
 
     def get_dataloader(self, data_path):
         dataset = QASDataset(data_path)
-        return DataLoader(dataset, batch_size=int(self.batch_size))
+        return DataLoader(dataset, batch_size=1)
 
     def get_dataloader(self, corpus, queries, qrels):
         dataset = Retrieved_Dataset(corpus, queries, qrels, self.num_docs)
-        return DataLoader(dataset, batch_size=int(self.batch_size))
+        return DataLoader(dataset, batch_size=1)
 

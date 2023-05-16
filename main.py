@@ -21,7 +21,7 @@ def parse():
     parser.add_argument("--retriever", type=str, default="DPR")
 
     #Dataloader
-    parser.add_argument("--batch", type=int, default=1)
+    parser.add_argument("--batch", type=int, default=10)
 
     #Reader
     parser.add_argument("--model", type=str, default="opt-iml-1.3b")
