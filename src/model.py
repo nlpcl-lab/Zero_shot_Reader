@@ -73,7 +73,8 @@ class Reader(pl.LightningModule):
         super().__init__()
         self.model_name = args.model
         self.model, self.tokenizer = get_model_from_huggingface(args.model)
-        self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer: "
+        self.tokenizer.padding_side = "left"
+        self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         self.prompt = args.prompt
         if args.CoT:
             self.prompt = self.prompt.replace(".","") + " with reasoning step-by-step."
@@ -88,7 +89,7 @@ class Reader(pl.LightningModule):
         self.UC = args.UC
         self.NC = args.NC
         self.generate_kwargs = dict(
-            max_new_tokens=1024,
+            max_new_tokens=512,
             return_dict_in_generate=True,
             output_scores=True
         )
@@ -128,7 +129,7 @@ class Reader(pl.LightningModule):
 
             preds += self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
 
-        if self.CoT:
+        if self.CoT or 'opt' in self.model_name:
             preds = [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
         else:
             preds = [_normalize_answer(p) for p in preds]
@@ -154,7 +155,7 @@ class Reader(pl.LightningModule):
         return (acc, score, pred, raw_result)
 
     def _calculate_score(self, outputs):
-        if "t5" or "T0" in self.model_name:
+        if "t5" in self.model_name or "T0" in self.model_name:
             scores = torch.stack(outputs.scores).transpose(0,1)
             results = []
             for i in range(outputs.sequences.shape[0]):
@@ -174,9 +175,11 @@ class Reader(pl.LightningModule):
             results = []
             for i in range(outputs.sequences.shape[0]):
                 result = []
-                for j in scores:
-                    s = topk(log_softmax(j.unsqueeze(0)), 1).values[0][0]
-                    result.append(float(s))
+                for j in scores[i]:
+                    s,v = topk(log_softmax(j.unsqueeze(0)), 1)
+                    result.append(float(s[0][0]))
+                    if int(v[0][0]) == 2:
+                        break
                 results.append(exp(sum(result)/len(result)))
         return results
 
