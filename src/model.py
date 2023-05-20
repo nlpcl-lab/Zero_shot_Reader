@@ -75,7 +75,9 @@ class Reader(pl.LightningModule):
         super().__init__()
         self.model_name = args.model
         self.model, self.tokenizer = get_model_from_huggingface(args.model_dir, args.model)
-        self.tokenizer.padding_side = "left"
+        if "opt" in self.model_name:
+            self.tokenizer.padding_side = "left"
+
         self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         self.prompt = args.prompt
         if args.CoT:
@@ -204,6 +206,7 @@ class Reader(pl.LightningModule):
             return rel_scores
         elif "opt" in self.model_name:
             pass
+
 
     def _accuracy(self, golds, pred):
         cor = max([gold == pred for gold in golds])

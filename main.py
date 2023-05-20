@@ -22,7 +22,7 @@ def parse():
 
     #Dataloader
     parser.add_argument("--batch", type=int, default=10)
-    parser.add_argument("--num_worker", type=int, default=10)
+    parser.add_argument("--num_workers", type=int, default=10)
 
     #Reader
     parser.add_argument("--model", type=str, default="opt-iml-1.3b")
