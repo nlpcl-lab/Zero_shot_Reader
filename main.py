@@ -43,6 +43,7 @@ def parse():
     #Path
     parser.add_argument("--dataset_dir", type=str, default="./data")
     parser.add_argument("--model_dir", type=str, default="../models")
+    parser.add_argument("--output_dir", type=str, default="./ouput")
 
     args = parser.parse_args()
 
@@ -77,7 +78,7 @@ def main():
     with open(os.path.join(out_dir, "args.json"), 'w') as f:
         json.dump(vars(args), f)
 
-    writer = CustomWriter2("./output/"+t)
+    writer = CustomWriter2(os.path.join(args.output_dir,t))
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 

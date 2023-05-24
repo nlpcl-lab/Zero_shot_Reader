@@ -62,6 +62,7 @@ class Retrieved_Dataset(Dataset):
             self.context.append([corpus[d]['text'] for d in documents.keys()][:num_docs])
             self.ids.append({q:[d for d in list(documents.keys())[:num_docs]]})
 
+
     def __len__(self):
         assert len(self.context) == len(self.question)
         assert len(self.context) == len(self.answer)
@@ -123,7 +124,9 @@ class Reader(pl.LightningModule):
             docs = total_docs[i*self.batch_size:(i+1)*self.batch_size]
             inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
             input = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device)
+            # embed()
             outputs = self(input)
+            # embed();exit(0)
             if self.NC:
                 rel_scores = self._noisy_channel(docs, query)
                 scores = self._calculate_score(outputs)
