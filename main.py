@@ -43,7 +43,7 @@ def parse():
     #Path
     parser.add_argument("--dataset_dir", type=str, default="./data")
     parser.add_argument("--model_dir", type=str, default="../models")
-    parser.add_argument("--output_dir", type=str, default="./ouput")
+    parser.add_argument("--output_dir", type=str, default="./output")
 
     args = parser.parse_args()
 
