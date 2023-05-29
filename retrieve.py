@@ -39,7 +39,7 @@ def parse():
 
     return args
 
-def load_data():
+def load_data(dataset, data_path, split):
     #### Just some code to print debug information to stdout
     logging.basicConfig(format='%(asctime)s - %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
@@ -48,8 +48,6 @@ def load_data():
     #### /print debug information to stdout
 
     #### Download scifact.zip dataset and unzip the dataset
-    dataset = "trivia"
-    data_path = os.path.join(pathlib.Path(__file__).parent.absolute(), "data", dataset)
 
     #### Provide the data path where scifact has been downloaded and unzipped to the data loader
     # data folder would contain these files:
@@ -57,7 +55,7 @@ def load_data():
     # (2) scifact/queries.jsonl (format: jsonlines)
     # (3) scifact/qrels/test.tsv (format: tsv ("\t"))
 
-    corpus, queries, qrels = GenericDataLoader(data_path).load(split="dev")
+    corpus, queries, qrels = GenericDataLoader(data_path).load(split=split)
     return corpus, queries, qrels
 
 
@@ -66,7 +64,7 @@ def load_data():
 #### Define a new index name or use an already existing one.
 #### We use default ES settings for retrieval
 #### https://www.elastic.co/
-def bm25(corpus, queries):
+def bm25(corpus, queries, dataset):
     hostname = "localhost" #localhost
     index_name = "nq" # scifact
 
@@ -89,11 +87,11 @@ def bm25(corpus, queries):
     results = retriever.retrieve(corpus, queries)
 
 
-    with open("trivia-bm25.json", 'w') as f:
+    with open("{}-bm25.json".format(dataset), 'w') as f:
         json.dump(results, f)
     return retriever, results
 
-def dpr(corpus, queries):
+def dpr(corpus, queries, dataset):
     model = DRES(models.SentenceBERT((
         "facebook-dpr-question_encoder-multiset-base",
         "facebook-dpr-ctx_encoder-multiset-base",
@@ -114,7 +112,7 @@ def dpr(corpus, queries):
             temp[a] = b
         results[k] = temp
 
-    with open("trivia-dpr.json", 'w') as f:
+    with open("{}-dpr.json".format(dataset), 'w') as f:
         json.dump(results, f)
     return retriever, results
 
@@ -135,7 +133,7 @@ def evaluate(retriever, results, qrels, corpus):
 
 if __name__=="__main__":
     args = parse()
-    corpus, queries, qrels = load_data()
+    corpus, queries, qrels = load_data(args.dataset, args.dataset_dir, args.split)
 
     if args.retriever == "bm25":
         retriever, results = bm25(corpus, queries)

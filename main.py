@@ -72,13 +72,13 @@ def main():
     model = Reader(args)
     dataloader = model.get_dataloader(corpus, queries, results, args.num_workers)
 
-    out_dir = os.path.join("./output",t)
+    out_dir = os.path.join(args.output_dir,t)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "args.json"), 'w') as f:
         json.dump(vars(args), f)
 
-    writer = CustomWriter2(os.path.join(args.output_dir,t))
+    writer = CustomWriter2(out_dir)
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 

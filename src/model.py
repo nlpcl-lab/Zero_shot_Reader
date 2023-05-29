@@ -19,11 +19,11 @@ import numpy as np
 def get_model_from_huggingface(model_dir, model):
     model_path = os.path.join(model_dir, model)
     if "opt" in model:
-        return AutoModelForCausalLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path)
+        return AutoModelForCausalLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path), True
     if "t5" in model:
-        return AutoModelForSeq2SeqLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path)
+        return AutoModelForSeq2SeqLM.from_pretrained(model_path), AutoTokenizer.from_pretrained(model_path), False
     if "T0" in model:
-        return T5ForConditionalGeneration.from_pretrained(model_path), T5Tokenizer.from_pretrained(model_path)
+        return T5ForConditionalGeneration.from_pretrained(model_path), T5Tokenizer.from_pretrained(model_path), False
     return None
 
 
@@ -61,6 +61,12 @@ class Retrieved_Dataset(Dataset):
             self.answer.append(queries[q]['answer'])
             self.context.append([corpus[d]['text'] for d in documents.keys()][:num_docs])
             self.ids.append({q:[d for d in list(documents.keys())[:num_docs]]})
+            # if len(self.answer) == 6:
+            #     # self.question = [self.question[-1]]
+            #     # self.answer = [self.answer[-1]]
+            #     # self.context = [self.context[-1]]
+            #     # self.ids = [self.ids[-1]]
+            #     break
 
 
     def __len__(self):
@@ -75,7 +81,7 @@ class Reader(pl.LightningModule):
     def __init__(self, args):
         super().__init__()
         self.model_name = args.model
-        self.model, self.tokenizer = get_model_from_huggingface(args.model_dir, args.model)
+        self.model, self.tokenizer, self.de = get_model_from_huggingface(args.model_dir, args.model)
         if "opt" in self.model_name:
             self.tokenizer.padding_side = "left"
 
@@ -119,50 +125,53 @@ class Reader(pl.LightningModule):
         total_docs = [d[0] for d in batch[0]]
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
-        answer_scores, preds = [], []
+        answer_scores, rel_scores, preds = [], [], []
         for i in range(int(len(total_docs)/self.batch_size)):
             docs = total_docs[i*self.batch_size:(i+1)*self.batch_size]
             inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
             input = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device)
-            # embed()
+
             outputs = self(input)
-            # embed();exit(0)
+
             if self.NC:
-                rel_scores = self._noisy_channel(docs, query)
-                scores = self._calculate_score(outputs)
-                answer_scores += [s * r for s, r in zip(scores, rel_scores)]
-            else:
-                answer_scores += self._calculate_score(outputs)
+                rel_scores += self._noisy_channel(docs, query)
+            answer_scores += self._calculate_score(outputs)
 
             preds += self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
 
-        if self.CoT or 'opt' in self.model_name:
+        if self.CoT or self.de:
             preds = [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
         else:
             preds = [_normalize_answer(p) for p in preds]
 
-        raw_result = self.create_raw_result(ids, preds, answer_scores)
+        if self.NC:
+            rel_scores = torch.nn.functional.softmax(torch.stack(rel_scores), dim=0).tolist()
+            final_scores = [s*r for s,r in zip(answer_scores, rel_scores)]
+        else:
+            final_scores = answer_scores
+
+        raw_result = self.create_raw_result(ids, preds, final_scores)
 
         if self.UC:
             preds = np.array(preds)
-            answer_scores = np.array(answer_scores)
+            final_scores = np.array(final_scores)
             index = preds != "unanswerable"
             preds = preds[index]
             if len(preds) == 0:
                 return (0, -1, "unanswerable", raw_result)
             else:
-                answer_scores = answer_scores[index]
-                score = max(answer_scores)
-                pred = preds[np.where(answer_scores == score)[0][0]]
+                final_scores = final_scores[index]
+                score = max(final_scores)
+                pred = preds[np.where(final_scores == score)[0][0]]
         else:
-            score = max(answer_scores)
-            pred = preds[answer_scores.index(score)]
-
+            score = max(final_scores)
+            pred = preds[final_scores.index(score)]
         acc = self._accuracy(answers, pred)
+
         return (acc, score, pred, raw_result)
 
     def _calculate_score(self, outputs):
-        if "t5" in self.model_name or "T0" in self.model_name:
+        if not self.de:
             scores = torch.stack(outputs.scores).transpose(0,1)
             results = []
             for i in range(outputs.sequences.shape[0]):
@@ -177,7 +186,7 @@ class Reader(pl.LightningModule):
                     s = topk(log_softmax(j.unsqueeze(0)), 1).values[0][0]
                     result.append(float(s))
                 results.append(exp(sum(result)/len(result)))
-        elif "opt" in self.model_name:
+        else:
             scores = torch.stack(outputs.scores).transpose(0,1)
             results = []
             for i in range(outputs.sequences.shape[0]):
@@ -192,11 +201,14 @@ class Reader(pl.LightningModule):
 
     def _noisy_channel(self, docs, query):
         template = "Please write a question based on the following context\n\nContext: {d}\nQuestion:"
-        inputs = [template.format(d=doc) for doc in docs]
-        inputs = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(self.device).input_ids
-        labels = [query] * len(docs)
-        labels = self.tokenizer(labels, padding=True, truncation=True, return_tensors="pt").to(self.device).input_ids
-        if "t5" in self.model_name:
+
+        if not self.de:
+            inputs = [template.format(d=doc) for doc in docs]
+            inputs = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(
+                self.device).input_ids
+            labels = [query] * len(docs)
+            labels = self.tokenizer(labels, padding=True, truncation=True, return_tensors="pt").to(
+                self.device).input_ids
             rel_scores = []
             outputs = self.model(input_ids=inputs, labels=labels)
             logits = outputs.logits
@@ -205,10 +217,29 @@ class Reader(pl.LightningModule):
                 nll = -log_softmax.gather(1, labels[i].unsqueeze(0).transpose(0,1))
                 avg_nll = torch.sum(nll, dim=0)
                 rel_scores.append(float(-avg_nll)/ float(labels[i].shape[0]))
-            rel_scores = torch.nn.functional.softmax(torch.tensor(rel_scores), dim=0).tolist()
+            rel_scores = torch.tensor(rel_scores)
             return rel_scores
-        elif "opt" in self.model_name:
-            pass
+        else:
+            inputs = [template.format(d=doc) + " " + query for doc in docs]
+            inputs = self.tokenizer(inputs, padding=True, truncation=True, return_tensors="pt").to(
+                self.device).input_ids
+            q_id = self.tokenizer("Question", return_tensors="pt").to(self.device).input_ids[0][1]
+            q_idx = (inputs == q_id).nonzero() + 1
+
+            labels = [query] * len(docs)
+            labels = self.tokenizer(labels, padding=True, truncation=True, return_tensors="pt").to(
+                self.device).input_ids[:,1:,]
+
+            outputs = self.model(input_ids=inputs)
+            rel_scores = []
+            for idx, logit in enumerate(outputs.logits):
+                log_softmax = torch.nn.functional.log_softmax(logit[q_idx[idx][1]:])
+                nll = -log_softmax.gather(1, labels[idx].unsqueeze(0).transpose(0,1))
+                avg_nll = torch.sum(nll, dim=0)
+                rel_scores.append(float(-avg_nll)/ float(labels[idx].shape[0]))
+            rel_scores = torch.tensor(rel_scores)
+
+            return rel_scores
 
 
     def _accuracy(self, golds, pred):
