@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from src.model import Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from src.util import CustomWriter2, load_data
+from src.util import CustomWriter2, CustomWriter3, load_data
 from IPython import embed
 
 def timestr():
@@ -45,6 +45,9 @@ def parse():
     parser.add_argument("--model_dir", type=str, default="../models")
     parser.add_argument("--output_dir", type=str, default="./output")
 
+
+    #ETC
+    parser.add_argument("--a100", action="store_true")
     args = parser.parse_args()
 
     return args
@@ -78,7 +81,10 @@ def main():
     with open(os.path.join(out_dir, "args.json"), 'w') as f:
         json.dump(vars(args), f)
 
-    writer = CustomWriter2(out_dir)
+    if args.a100:
+        writer = CustomWriter3(out_dir)
+    else:
+        writer = CustomWriter2(out_dir)
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
 

@@ -170,6 +170,19 @@ def get_result(predictions):
 
     return np.array(pos_result), np.array(neg_result)
 
+def get_result2(predictions):
+    pos_result = []
+    neg_result = []
+    for acc,score,_,_ in predictions:
+        if acc > 0:
+            pos_result.append(score)
+        else:
+            if score > 0:
+                neg_result.append(score)
+
+    return np.array(pos_result), np.array(neg_result)
+
+
 
 class CustomWriter(BasePredictionWriter):
 
@@ -227,4 +240,35 @@ class CustomWriter2(BasePredictionWriter):
         with open(os.path.join(self.out_dir, "raw_result.json"), 'w') as f:
             json.dump(raw_result, f)
 
+
+class CustomWriter3(BasePredictionWriter):
+
+    def __init__(self, out_dir, wrtie_interval="epoch"):
+        super().__init__(wrtie_interval)
+        self.results = []
+        self.out_dir = out_dir
+        self.logger = logging.getLogger(type(self).__name__)
+
+    def on_predict_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"):
+        self.results = [[] for _ in range(trainer.world_size)]
+
+    def write_on_epoch_end(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        predictions: Sequence[Any],
+        batch_indices: Optional[Sequence[Any]],
+    ):
+        pos_result, neg_result = get_result(predictions)
+        plt.hist(pos_result, bins=100, alpha=0.5)
+        plt.hist(neg_result, bins=100, alpha=0.5)
+        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0])*100,2)))
+
+        plt.savefig(os.path.join(self.out_dir, "result.jpg"))
+
+        raw_result = {}
+        for _,_,_, r in predictions:
+            raw_result.update(r)
+        with open(os.path.join(self.out_dir, "raw_result.json"), 'w') as f:
+            json.dump(raw_result, f)
 
