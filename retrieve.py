@@ -56,7 +56,7 @@ def load_data(dataset, data_path, split):
     # (2) scifact/queries.jsonl (format: jsonlines)
     # (3) scifact/qrels/test.tsv (format: tsv ("\t"))
 
-    corpus, queries, qrels = GenericDataLoader(data_path).load(split=split)
+    corpus, queries, qrels = GenericDataLoader(data_dir).load(split=split)
     return corpus, queries, qrels
 
 
