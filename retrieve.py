@@ -67,18 +67,18 @@ def load_data(dataset, data_path, split):
 #### https://www.elastic.co/
 def bm25(corpus, queries, dataset):
     hostname = "localhost" #localhost
-    index_name = "nq" # scifact
+    index_name = dataset
 
     #### Intialize ####
     # (1) True - Delete existing index and re-index all documents from scratch
     # (2) False - Load existing index
-    initialize = False
+    initialize = True
 
     #### Sharding ####
     # (1) For datasets with small corpus (datasets ~ < 5k docs) => limit shards = 1
     # SciFact is a relatively small dataset! (limit shards to 1)
     number_of_shards = 1
-    model = BM25(index_name=index_name, hostname=hostname, initialize=initialize, number_of_shards=number_of_shards)
+    model = BM25(index_name=index_name, hostname=hostname, initialize=initialize, number_of_shards=number_of_shards, keys={"title": "title", "body": "text"})
 
     # (2) For datasets with big corpus ==> keep default configuration
     # model = BM25(index_name=index_name, hostname=hostname, initialize=initialize)

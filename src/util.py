@@ -259,7 +259,7 @@ class CustomWriter3(BasePredictionWriter):
         predictions: Sequence[Any],
         batch_indices: Optional[Sequence[Any]],
     ):
-        pos_result, neg_result = get_result(predictions)
+        pos_result, neg_result = get_result2(predictions)
         plt.hist(pos_result, bins=100, alpha=0.5)
         plt.hist(neg_result, bins=100, alpha=0.5)
         plt.title("Acc {}".format(round(len(pos_result)/len(predictions)*100,2)))

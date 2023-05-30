@@ -126,6 +126,10 @@ class Reader(pl.LightningModule):
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
         answer_scores, rel_scores, preds = [], [], []
+        
+        if self.de:
+            total_docs = self._check_length(total_docs)
+
         for i in range(int(len(total_docs)/self.batch_size)):
             docs = total_docs[i*self.batch_size:(i+1)*self.batch_size]
             inputs = [self.template.format(p=self.prompt, d=doc, q=query) for doc in docs]
@@ -140,8 +144,10 @@ class Reader(pl.LightningModule):
             preds += self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
 
         if self.CoT or self.de:
+            # embed(); exit(0)
             preds = [_normalize_answer(p.split(self.output_verbalizer)[-1]) for p in preds]
         else:
+            # embed(); exit(0)
             preds = [_normalize_answer(p) for p in preds]
 
         if self.NC:
@@ -169,6 +175,15 @@ class Reader(pl.LightningModule):
         acc = self._accuracy(answers, pred)
 
         return (acc, score, pred, raw_result)
+
+    def _check_length(self, docs):
+        for i in range(len(docs)):
+            d = docs[i]
+            if len(self.tokenizer.tokenize(d)) > 1500:
+                d = self.tokenizer.convert_tokens_to_string(self.tokenizer.tokenize(d)[:1500])
+                docs[i] = d
+        return tuple(docs)
+
 
     def _calculate_score(self, outputs):
         if not self.de:
@@ -234,10 +249,7 @@ class Reader(pl.LightningModule):
             rel_scores = []
             for idx, logit in enumerate(outputs.logits):
                 log_softmax = torch.nn.functional.log_softmax(logit[q_idx[idx][1]:])
-                try:
-                    nll = -log_softmax.gather(1, labels[idx].unsqueeze(0).transpose(0,1))
-                except:
-                    embed();exit(0)
+                nll = -log_softmax.gather(1, labels[idx].unsqueeze(0).transpose(0,1))
                 avg_nll = torch.sum(nll, dim=0)
                 rel_scores.append(float(-avg_nll)/ float(labels[idx].shape[0]))
             rel_scores = torch.tensor(rel_scores)
