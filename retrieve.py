@@ -45,6 +45,7 @@ def load_data(dataset, data_path, split):
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO,
                         handlers=[LoggingHandler()])
+    data_dir = os.path.join(data_path, dataset)
     #### /print debug information to stdout
 
     #### Download scifact.zip dataset and unzip the dataset
@@ -136,6 +137,6 @@ if __name__=="__main__":
     corpus, queries, qrels = load_data(args.dataset, args.dataset_dir, args.split)
 
     if args.retriever == "bm25":
-        retriever, results = bm25(corpus, queries)
+        retriever, results = bm25(corpus, queries, args.dataset)
     elif args.retriever == "dpr":
-        retriever, results = dpr(corpus, queries)
+        retriever, results = dpr(corpus, queries, args.dataset)

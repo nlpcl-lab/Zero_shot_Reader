@@ -226,7 +226,7 @@ class Reader(pl.LightningModule):
             q_id = self.tokenizer("Question", return_tensors="pt").to(self.device).input_ids[0][1]
             q_idx = (inputs == q_id).nonzero() + 1
 
-            labels = [query] * len(docs)
+            labels = [" " + query] * len(docs)
             labels = self.tokenizer(labels, padding=True, truncation=True, return_tensors="pt").to(
                 self.device).input_ids[:,1:,]
 
@@ -234,7 +234,10 @@ class Reader(pl.LightningModule):
             rel_scores = []
             for idx, logit in enumerate(outputs.logits):
                 log_softmax = torch.nn.functional.log_softmax(logit[q_idx[idx][1]:])
-                nll = -log_softmax.gather(1, labels[idx].unsqueeze(0).transpose(0,1))
+                try:
+                    nll = -log_softmax.gather(1, labels[idx].unsqueeze(0).transpose(0,1))
+                except:
+                    embed();exit(0)
                 avg_nll = torch.sum(nll, dim=0)
                 rel_scores.append(float(-avg_nll)/ float(labels[idx].shape[0]))
             rel_scores = torch.tensor(rel_scores)
