@@ -126,7 +126,7 @@ class Reader(pl.LightningModule):
         query = batch[1][0]
         ids = {q_id : [doc_id[0] for doc_id in v] for q_id,v in batch[3].items()}
         answer_scores, rel_scores, preds = [], [], []
-        
+
         if self.de:
             total_docs = self._check_length(total_docs)
 
