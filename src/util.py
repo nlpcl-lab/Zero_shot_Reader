@@ -9,6 +9,8 @@ import json
 import os
 import logging
 import csv
+from sklearn.utils.extmath import softmax
+import numpy as np
 from IPython import embed
 
 
@@ -158,6 +160,10 @@ def _normalize_answer(s):
 
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
+def _accuracy(golds, pred):
+    cor = max([gold == pred for gold in golds])
+    return cor
+
 def get_result(predictions):
     pos_result = []
     neg_result = []
@@ -182,6 +188,51 @@ def get_result2(predictions):
 
     return np.array(pos_result), np.array(neg_result)
 
+def _calculate_score(final_scores, preds,answers, UC):
+    if UC:
+        preds = np.array(preds)
+        final_scores = np.array(final_scores)
+        index = preds != "unanswerable"
+        preds = preds[index]
+        if len(preds) == 0:
+            return 0
+        else:
+            final_scores = final_scores[index]
+            score = max(final_scores)
+            pred = preds[np.where(final_scores == score)[0][0]]
+    else:
+        score = max(final_scores)
+        pred = preds[final_scores.index(score)]
+
+    return _accuracy(answers, pred)
+
+
+def calculate_score(out_dir, raw_result, UC):
+    top_k = [10,20,30,40,50,60,70,80,90,100]
+    nc_scores = {}
+    scores = {}
+    for i in top_k:
+        scores[i] = 0
+        nc_scores[i] = 0
+        for _,v in raw_result.items():
+            # answers = v['ids']
+            answers = v['answers']
+            preds = v['preds'][:i]
+            answer_scores = v['as'][:i]
+            rel_scores = softmax(np.array([v['rs'][:i]])).tolist()[0]
+            # Not NC
+            scores[i] += _calculate_score(answer_scores,preds,answers,UC)
+            final_scores = [s*r for s,r in zip(answer_scores, rel_scores)]
+            nc_scores[i] += _calculate_score(final_scores,preds,answers,UC)
+        scores[i] = scores[i]/len(raw_result)
+        nc_scores[i] = nc_scores[i]/len(raw_result)
+    print(scores)
+    print(nc_scores)
+    with open(os.path.join(out_dir, 'scores.json'),'w') as f:
+        json.dump(scores, f)
+
+    with open(os.path.join(out_dir, 'nc_scores.json'),'w') as f:
+        json.dump(nc_scores, f)
 
 
 class CustomWriter(BasePredictionWriter):
@@ -227,15 +278,8 @@ class CustomWriter2(BasePredictionWriter):
         predictions: Sequence[Any],
         batch_indices: Optional[Sequence[Any]],
     ):
-        pos_result, neg_result = get_result(predictions)
-        plt.hist(pos_result, bins=100, alpha=0.5)
-        plt.hist(neg_result, bins=100, alpha=0.5)
-        plt.title("Acc {}".format(round(len(pos_result)/len(predictions[0])*100,2)))
-
-        plt.savefig(os.path.join(self.out_dir, "result.jpg"))
-
         raw_result = {}
-        for _,_,_, r in predictions[0]:
+        for r in predictions[0]:
             raw_result.update(r)
         with open(os.path.join(self.out_dir, "raw_result.json"), 'w') as f:
             json.dump(raw_result, f)

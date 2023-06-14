@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from src.model import Reader
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from src.util import CustomWriter2, CustomWriter3, load_data
+from src.util import CustomWriter2, CustomWriter3, load_data, calculate_score
 from IPython import embed
 
 def timestr():
@@ -35,7 +35,7 @@ def parse():
     parser.add_argument("--UC", action="store_true")
 
     #Output Verbalizer
-    parser.add_argument("--output_verbalizer", type=str, default="the final answer is ")
+    parser.add_argument("--output_verbalizer", type=str, default="Answer:")
 
     #Noisy Channel
     parser.add_argument("--NC", action="store_true")
@@ -87,6 +87,10 @@ def main():
         writer = CustomWriter2(out_dir)
     trainer = pl.Trainer(accelerator="gpu", devices=1, callbacks=writer)
     trainer.predict(model, dataloaders=dataloader)
+
+    with open(os.path.join(out_dir, 'raw_result.json')) as f:
+        result = json.load(f)
+    calculate_score(out_dir, result, args.UC)
 
 
 if __name__=="__main__":

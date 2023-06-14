@@ -85,7 +85,11 @@ class Reader(pl.LightningModule):
         if "opt" in self.model_name:
             self.tokenizer.padding_side = "left"
 
-        self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
+        if self.de:
+            self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
+        else:
+            self.template = "{p}\n\nContext: {d}\nQuestion: {q}\n"
+        
         self.prompt = args.prompt
         if args.CoT:
             self.prompt = self.prompt.replace(".","") + " with reasoning step-by-step."
@@ -111,12 +115,10 @@ class Reader(pl.LightningModule):
         generated_ids = self.model.generate(**input, **self.generate_kwargs)
         return generated_ids
 
-    def create_raw_result(self, ids, preds, scores):
+    def create_raw_result(self, ids, preds, answers, answer_scores, rel_scores):
         result = {}
-        for k,v in ids.items():
-            result = {k : {}}
-            for i,v in enumerate(v):
-                result[k][v] = {'pred':preds[i], 'score':scores[i]}
+        for k in ids.keys():
+            result = {k : {'ids' : ids[k], 'preds' : preds, 'answers': answers, 'as': answer_scores, 'rs': rel_scores}}
         return result
 
     def predict_step(self, batch, batch_idx):
@@ -137,8 +139,7 @@ class Reader(pl.LightningModule):
 
             outputs = self(input)
 
-            if self.NC:
-                rel_scores += self._noisy_channel(docs, query)
+            rel_scores += self._noisy_channel(docs, query)
             answer_scores += self._calculate_score(outputs)
 
             preds += self.tokenizer.batch_decode(outputs.sequences, skip_special_tokens=True)
@@ -150,31 +151,30 @@ class Reader(pl.LightningModule):
             # embed(); exit(0)
             preds = [_normalize_answer(p) for p in preds]
 
-        if self.NC:
-            rel_scores = torch.nn.functional.softmax(torch.stack(rel_scores), dim=0).tolist()
-            final_scores = [s*r for s,r in zip(answer_scores, rel_scores)]
-        else:
-            final_scores = answer_scores
-
-        raw_result = self.create_raw_result(ids, preds, final_scores)
-
-        if self.UC:
-            preds = np.array(preds)
-            final_scores = np.array(final_scores)
-            index = preds != "unanswerable"
-            preds = preds[index]
-            if len(preds) == 0:
-                return (0, -1, "unanswerable", raw_result)
-            else:
-                final_scores = final_scores[index]
-                score = max(final_scores)
-                pred = preds[np.where(final_scores == score)[0][0]]
-        else:
-            score = max(final_scores)
-            pred = preds[final_scores.index(score)]
-        acc = self._accuracy(answers, pred)
-
-        return (acc, score, pred, raw_result)
+        raw_result = self.create_raw_result(ids, preds, answers, answer_scores, torch.stack(rel_scores).tolist())
+        return (raw_result)
+        # if self.NC:
+        #     rel_scores = torch.nn.functional.softmax(torch.stack(rel_scores), dim=0).tolist()
+        #     final_scores = [s*r for s,r in zip(answer_scores, rel_scores)]
+        # else:
+        #     final_scores = answer_scores
+        #
+        #
+        # if self.UC:
+        #     preds = np.array(preds)
+        #     final_scores = np.array(final_scores)
+        #     index = preds != "unanswerable"
+        #     preds = preds[index]
+        #     if len(preds) == 0:
+        #         return (0, -1, "unanswerable", raw_result)
+        #     else:
+        #         final_scores = final_scores[index]
+        #         score = max(final_scores)
+        #         pred = preds[np.where(final_scores == score)[0][0]]
+        # else:
+        #     score = max(final_scores)
+        #     pred = preds[final_scores.index(score)]
+        # acc = self._accuracy(answers, pred)
 
     def _check_length(self, docs):
         for i in range(len(docs)):
