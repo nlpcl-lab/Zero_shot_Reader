@@ -303,15 +303,8 @@ class CustomWriter3(BasePredictionWriter):
         predictions: Sequence[Any],
         batch_indices: Optional[Sequence[Any]],
     ):
-        pos_result, neg_result = get_result2(predictions)
-        plt.hist(pos_result, bins=100, alpha=0.5)
-        plt.hist(neg_result, bins=100, alpha=0.5)
-        plt.title("Acc {}".format(round(len(pos_result)/len(predictions)*100,2)))
-
-        plt.savefig(os.path.join(self.out_dir, "result.jpg"))
-
         raw_result = {}
-        for _,_,_, r in predictions:
+        for  r in predictions:
             raw_result.update(r)
         with open(os.path.join(self.out_dir, "raw_result.json"), 'w') as f:
             json.dump(raw_result, f)
