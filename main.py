@@ -9,6 +9,7 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.util import CustomWriter2, CustomWriter3, load_data, calculate_score
 from IPython import embed
 
+
 def timestr():
     return time.strftime("%Y%m%d-%H%M%S")
 
@@ -29,6 +30,7 @@ def parse():
     parser.add_argument("--num_docs", type=int, default=100)
 
     #Prompt Type
+    parser.add_argument("--template", type=str, default="{p}\n\n{d} {q}")
     parser.add_argument("--prompt", type=str, default="Read the following context and answer the question.")
     parser.add_argument("--CoT", action="store_true")
     parser.add_argument("--SC", action="store_true")
