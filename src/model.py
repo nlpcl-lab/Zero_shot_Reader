@@ -88,7 +88,7 @@ class Reader(pl.LightningModule):
         if self.de:
             self.template = "{p}\n\nContext: {d}\nQuestion: {q}\nAnswer:"
         else:
-            self.template = "{p}\n\nContext: {d}\nQuestion: {q}\n"
+            self.template = args.template
         
         self.prompt = args.prompt
         if args.CoT:
