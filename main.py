@@ -31,7 +31,8 @@ def parse():
 
     #Prompt Type
     parser.add_argument("--template", type=str, default="{p}\n\nQuestion: {q}\nContext: {d}")
-    parser.add_argument("--prompt", type=str, default="Extract the answer to the question from the following document.")
+    # parser.add_argument("--template", type=str, default="Here is a question about this article: {d}\n{p}: {q}")
+    parser.add_argument("--prompt", type=str, default="Read the following context and answer the question.")
     parser.add_argument("--CoT", action="store_true")
     parser.add_argument("--SC", action="store_true")
     parser.add_argument("--UC", action="store_true")

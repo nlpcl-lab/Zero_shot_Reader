@@ -66,7 +66,6 @@ class Retrieved_Dataset(Dataset):
             #     # self.answer = [self.answer[-1]]
             #     # self.context = [self.context[-1]]
             #     # self.ids = [self.ids[-1]]
-            #     break
 
 
     def __len__(self):
